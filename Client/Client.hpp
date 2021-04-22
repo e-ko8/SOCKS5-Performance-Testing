@@ -3,6 +3,12 @@
 #include <boost/asio.hpp>
 #include <vector>
 
+struct Buffer
+{
+    std::vector<std::uint8_t> buf;
+    std::size_t pos = 0;
+};
+
 struct ServerInfo
 {
     std::string ip;
@@ -19,6 +25,7 @@ struct ClientContext
 {
     boost::asio::io_context ctx;
     ProxyingInfo proxying_info;
+    std::size_t testing_buffer_size = 0;
 };
 
 class Client
@@ -41,10 +48,8 @@ private:
 
     ClientContext& my_ctx;
     boost::asio::ip::tcp::socket socket;
-    std::vector<std::uint8_t> send_buffer;
-    std::vector<std::uint8_t> recv_buffer;
-    std::size_t send_buf_pos = 0;
-    std::size_t recv_buf_pos = 0;
+    Buffer send_buffer;
+    Buffer recv_buffer;
 };
 
 

@@ -10,6 +10,8 @@ int main(int argc, char* argv[])
     ctx.proxying_info.proxy.port = 5005;
     ctx.proxying_info.third_party.port = 6000;
 
+    ctx.testing_buffer_size = 9876543;
+
     Client client(ctx);
     client.Connect();
 
