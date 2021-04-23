@@ -3,6 +3,8 @@
 #include <boost/asio.hpp>
 #include <vector>
 
+#include "Timer.hpp"
+
 struct Buffer
 {
     std::vector<std::uint8_t> buf;
@@ -21,11 +23,18 @@ struct ProxyingInfo
     ServerInfo third_party;
 };
 
+struct ClientsInfo
+{
+    std::size_t stopped_clients = 0;
+    std::size_t total_clients = 0;
+};
+
 struct ClientContext
 {
     boost::asio::io_context ctx;
     ProxyingInfo proxying_info;
     std::size_t testing_buffer_size = 0;
+    ClientsInfo clients_info;
 };
 
 class Client
@@ -33,7 +42,7 @@ class Client
 
 public:
 
-    explicit Client(ClientContext& client_ctx);
+    explicit Client(ClientContext& client_ctx, int id, Timer& t);
     void Connect();
 
 private:
@@ -50,6 +59,9 @@ private:
     boost::asio::ip::tcp::socket socket;
     Buffer send_buffer;
     Buffer recv_buffer;
+
+    Timer& timer;
+    int my_id = 0;
 };
 
 

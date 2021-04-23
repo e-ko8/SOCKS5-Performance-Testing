@@ -5,11 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(    INCLUDE_PATHS
         Client
+        Timer
         )
 
 set(    SOURCE_FILES
         Client/Client.cpp
         main.cpp
+        Timer/Timer.cpp
         )
 
 add_executable(SOCKS5-Performance-Testing ${SOURCE_FILES})

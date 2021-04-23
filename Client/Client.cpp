@@ -2,9 +2,9 @@
 #include <iostream>
 #include <boost/endian.hpp>
 
-Client::Client(ClientContext &client_ctx)  : my_ctx{client_ctx}, socket{my_ctx.ctx}
+Client::Client(ClientContext &client_ctx, int id, Timer& t)  : my_ctx{client_ctx}, socket{my_ctx.ctx}, timer{t}
 {
-
+ my_id = id;
 }
 
 void Client::Connect()
@@ -15,7 +15,7 @@ void Client::Connect()
         if(!error)
         {
             StartHandshake();
-            std::cout << "Connected to proxy\n";
+            //std::cout << "Connected to proxy\n";
         }
 
         else std::cerr << "Error on connect to proxy " << error.message() << "\n";
@@ -31,7 +31,7 @@ void Client::StartHandshake()
         if(!error)
         {
             CompleteHandshake();
-            std::cout << "Handshake message was sent\n";
+            //std::cout << "Handshake message was sent\n";
         }
 
         else std::cerr << "Handshake starting failed " << error.message() << "\n";
@@ -46,7 +46,7 @@ void Client::CompleteHandshake()
         if(!error)
         {
             StartProtocolPart();
-            std::cout << "Handshake message was received\n";
+            //std::cout << "Handshake message was received\n";
         }
 
         else std::cerr << "Handshake completion failed " << error.message() << "\n";
@@ -67,7 +67,7 @@ void Client::StartProtocolPart()
         if(!error)
         {
             CompleteProtocolPart();
-            std::cout << "Protocol message was sent with " << count << " bytes \n";
+            //std::cout << "Protocol message was sent with " << count << " bytes \n";
         }
 
         else std::cerr << "Protocol part starting failed " << error.message() << "\n";
@@ -84,7 +84,7 @@ void Client::CompleteProtocolPart()
             send_buffer.buf.resize(my_ctx.testing_buffer_size);
             recv_buffer.buf.resize(send_buffer.buf.size());
             WriteMessage();
-            std::cout << "Protocol message was received\n";
+            //std::cout << "Protocol message was received\n";
         }
 
         else std::cerr << "Protocol part completion failed " << error.message() << "\n";
@@ -93,11 +93,12 @@ void Client::CompleteProtocolPart()
 
 void Client::WriteMessage()
 {
+    timer.Start(my_id);
     boost::asio::async_write(socket, boost::asio::buffer(&send_buffer.buf[send_buffer.pos],send_buffer.buf.size() - send_buffer.pos),[this](const boost::system::error_code& error,std::size_t count)
     {
         if(!error)
         {
-            std::cout << "Sent " << count << " bytes\n";
+            //std::cout << "Sent " << count << " bytes\n";
             send_buffer.pos += count;
             ReadMessage();
         }
@@ -112,10 +113,10 @@ void Client::ReadMessage()
     {
         if(!error)
         {
-            std::cout << "Received " << count << " bytes\n";
+            //std::cout << "Received " << count << " bytes\n";
 
             recv_buffer.pos += count;
-            std::cout << "Recv buf pos = " << recv_buffer.pos << "\n";
+            //std::cout << "Recv buf pos = " << recv_buffer.pos << "\n";
 
             if(recv_buffer.pos != send_buffer.pos)
             {
@@ -129,7 +130,20 @@ void Client::ReadMessage()
                 recv_buffer.pos = 0;
             }
 
-            std::cout << "\n";
+            //std::cout << "\n";
+            timer.Stop(my_id);
+            timer.IncreaseProcessedMsgs(my_id);
+
+            if(timer.IsBoundReached(my_id))
+            {
+                my_ctx.clients_info.stopped_clients++;
+                if(my_ctx.clients_info.stopped_clients == my_ctx.clients_info.total_clients)
+                {
+                    my_ctx.ctx.stop();
+                }
+
+                return;
+            }
             WriteMessage();
         }
 
