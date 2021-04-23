@@ -2,7 +2,7 @@
 #include <iostream>
 #include <boost/endian.hpp>
 
-Client::Client(ClientContext &client_ctx, int id, Timer& t)  : my_ctx{client_ctx}, socket{my_ctx.ctx}, timer{t}
+Client::Client(ClientContext &client_ctx, int id)  : my_ctx{client_ctx}, socket{my_ctx.ctx}
 {
  my_id = id;
 }
@@ -93,7 +93,11 @@ void Client::CompleteProtocolPart()
 
 void Client::WriteMessage()
 {
-    timer.Start(my_id);
+    {
+        std::lock_guard lock(my_ctx.mutex);
+        my_ctx.timer.Start(my_id);
+    }
+
     boost::asio::async_write(socket, boost::asio::buffer(&send_buffer.buf[send_buffer.pos],send_buffer.buf.size() - send_buffer.pos),[this](const boost::system::error_code& error,std::size_t count)
     {
         if(!error)
@@ -131,19 +135,23 @@ void Client::ReadMessage()
             }
 
             //std::cout << "\n";
-            timer.Stop(my_id);
-            timer.IncreaseProcessedMsgs(my_id);
-
-            if(timer.IsBoundReached(my_id))
             {
-                my_ctx.clients_info.stopped_clients++;
-                if(my_ctx.clients_info.stopped_clients == my_ctx.clients_info.total_clients)
-                {
-                    my_ctx.ctx.stop();
-                }
+                std::lock_guard lock(my_ctx.mutex);
+                my_ctx.timer.Stop(my_id);
+                my_ctx.timer.IncreaseProcessedMsgs(my_id);
 
-                return;
+                if(my_ctx.timer.IsBoundReached(my_id))
+                {
+                    my_ctx.clients_info.stopped_clients++;
+                    if(my_ctx.clients_info.stopped_clients == my_ctx.clients_info.total_clients)
+                    {
+                        my_ctx.ctx.stop();
+                    }
+
+                    return;
+                }
             }
+
             WriteMessage();
         }
 

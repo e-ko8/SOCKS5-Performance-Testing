@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <vector>
+#include <mutex>
 
 #include "Timer.hpp"
 
@@ -35,6 +36,8 @@ struct ClientContext
     ProxyingInfo proxying_info;
     std::size_t testing_buffer_size = 0;
     ClientsInfo clients_info;
+    std::mutex mutex;
+    Timer timer;
 };
 
 class Client
@@ -42,7 +45,7 @@ class Client
 
 public:
 
-    explicit Client(ClientContext& client_ctx, int id, Timer& t);
+    explicit Client(ClientContext& client_ctx, int id);
     void Connect();
 
 private:
@@ -60,7 +63,6 @@ private:
     Buffer send_buffer;
     Buffer recv_buffer;
 
-    Timer& timer;
     int my_id = 0;
 };
 
