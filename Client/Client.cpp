@@ -4,7 +4,7 @@
 
 Client::Client(ClientContext &client_ctx, int id)  : my_ctx{client_ctx}, socket{my_ctx.ctx}
 {
- my_id = id;
+    my_id = id;
 }
 
 void Client::Connect()
@@ -15,10 +15,13 @@ void Client::Connect()
         if(!error)
         {
             StartHandshake();
-            //std::cout << "Connected to proxy\n";
         }
 
-        else std::cerr << "Error on connect to proxy " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Error on connect to proxy by id " << my_id << ":" << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -31,10 +34,13 @@ void Client::StartHandshake()
         if(!error)
         {
             CompleteHandshake();
-            //std::cout << "Handshake message was sent\n";
         }
 
-        else std::cerr << "Handshake starting failed " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Handshake starting failed by id " << my_id << ":" << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -46,10 +52,13 @@ void Client::CompleteHandshake()
         if(!error)
         {
             StartProtocolPart();
-            //std::cout << "Handshake message was received\n";
         }
 
-        else std::cerr << "Handshake completion failed " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Handshake completion failed by id " << my_id << ":"  << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -67,10 +76,13 @@ void Client::StartProtocolPart()
         if(!error)
         {
             CompleteProtocolPart();
-            //std::cout << "Protocol message was sent with " << count << " bytes \n";
         }
 
-        else std::cerr << "Protocol part starting failed " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Protocol part starting failed by id " << my_id << ":"  << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -84,10 +96,13 @@ void Client::CompleteProtocolPart()
             send_buffer.buf.resize(my_ctx.testing_buffer_size);
             recv_buffer.buf.resize(send_buffer.buf.size());
             WriteMessage();
-            //std::cout << "Protocol message was received\n";
         }
 
-        else std::cerr << "Protocol part completion failed " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Protocol part completion failed by id " << my_id << ":"  << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -102,12 +117,15 @@ void Client::WriteMessage()
     {
         if(!error)
         {
-            //std::cout << "Sent " << count << " bytes\n";
             send_buffer.pos += count;
             ReadMessage();
         }
 
-        else std::cerr << "Error in message writing " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Error in message writing by id " << my_id << ":"  << error.message() << "\n";
+            StopTesting();
+        }
     });
 }
 
@@ -117,10 +135,7 @@ void Client::ReadMessage()
     {
         if(!error)
         {
-            //std::cout << "Received " << count << " bytes\n";
-
             recv_buffer.pos += count;
-            //std::cout << "Recv buf pos = " << recv_buffer.pos << "\n";
 
             if(recv_buffer.pos != send_buffer.pos)
             {
@@ -134,20 +149,16 @@ void Client::ReadMessage()
                 recv_buffer.pos = 0;
             }
 
-            //std::cout << "\n";
             {
-                std::lock_guard lock(my_ctx.mutex);
-                my_ctx.timer.Stop(my_id);
-                my_ctx.timer.IncreaseProcessedMsgs(my_id);
+                {
+                    std::lock_guard lock(my_ctx.mutex);
+                    my_ctx.timer.Stop(my_id);
+                    my_ctx.timer.IncreaseProcessedMsgs(my_id);
+                }
 
                 if(my_ctx.timer.IsBoundReached(my_id))
                 {
-                    my_ctx.clients_info.stopped_clients++;
-                    if(my_ctx.clients_info.stopped_clients == my_ctx.clients_info.total_clients)
-                    {
-                        my_ctx.ctx.stop();
-                    }
-
+                    StopTesting();
                     return;
                 }
             }
@@ -155,6 +166,21 @@ void Client::ReadMessage()
             WriteMessage();
         }
 
-        else std::cerr << "Error in message reading " << error.message() << "\n";
+        else
+        {
+            std::cerr << "Error in message reading by id " << my_id << ":"  << error.message() << "\n";
+            StopTesting();
+        }
     });
+}
+
+void Client::StopTesting()
+{
+    std::lock_guard lock(my_ctx.mutex);
+    my_ctx.clients_info.stopped_clients++;
+
+    if(my_ctx.clients_info.stopped_clients == my_ctx.clients_info.total_clients)
+    {
+        my_ctx.ctx.stop();
+    }
 }

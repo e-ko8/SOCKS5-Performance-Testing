@@ -58,6 +58,8 @@ private:
     void WriteMessage();
     void ReadMessage();
 
+    void StopTesting();
+
     ClientContext& my_ctx;
     boost::asio::ip::tcp::socket socket;
     Buffer send_buffer;
