@@ -57,6 +57,8 @@ void StartPerformanceTesting(ClientContext& ctx, TestingCtx& testing_ctx)
     std::vector<Client> clients;
     clients.reserve(testing_ctx.clients_size);
 
+    ctx.clients_info.total_clients = testing_ctx.clients_size;
+
     for(int i = 0; i < testing_ctx.clients_size; i++)
     {
         clients.emplace_back(Client{ctx,i});
